@@ -1,0 +1,28 @@
+logging:
+  level: debug
+  timestamp: true
+
+welcome-message: false
+
+# Web server
+web:
+  host: '0.0.0.0'
+  port: 8080
+
+## Parsers
+parsers: []
+
+## Connector modules
+connectors:
+  icq:
+    token: $OPS_DROID_SAMPLE_BOT_TOKEN
+    bot-name: "opsdroid_sample_bot"
+    base-url: "api.icq.net/bot/v1/"
+    repo: https://github.com/mboriskin/connector-icq
+
+## Skill modules
+skills:
+  reminders:
+    path: /opt/opsdroid/skills/reminder
+    no-cache: true
+    app-name: opsdroid-demo
