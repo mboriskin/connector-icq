@@ -10,8 +10,7 @@ from opsdroid.events import Message
 _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = {
     Required("token"): str,
-    "update-interval": float,
-    "default-user": str,
+    Required("base-url"): str,
     "whitelisted-users": list,
 }
 
@@ -147,8 +146,10 @@ class ConnectorICQ(Connector):
                 if self.handle_user_permission(nick, user_id):
                     await self.opsdroid.parse(message)
                 else:
-                    message.text = "Sorry, you're not allowed to speak with this bot."
-                    await self.send(message)
+                    if "type" in payload.get("chat", {}):
+                        if payload["chat"]["type"] == "private":
+                            message.text = "Sorry, you're not allowed to speak with this bot."
+                            await self.send(message)
                 self.latest_update = event.get("eventId", None)
             elif "eventId" in event:
                 self.latest_update = event.get("eventId", None)
