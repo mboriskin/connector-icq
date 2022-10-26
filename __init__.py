@@ -38,6 +38,7 @@ class ConnectorICQ(Connector):
         self.default_user = config.get("default-user", None)
         self.default_target = self.default_user
         self.whitelisted_users = config.get("whitelisted-users", None)
+        _LOGGER.debug(self.whitelisted_users)
         self.update_interval = config.get("update-interval", 1)
         self.session = None
         self._closing = asyncio.Event()
@@ -148,6 +149,7 @@ class ConnectorICQ(Connector):
                 else:
                     if "type" in payload.get("chat", {}):
                         if payload["chat"]["type"] == "private":
+                            _LOGGER.debug(f'{payload["chat"]["type"]} - type of chat')
                             message.text = "Sorry, you're not allowed to speak with this bot."
                             await self.send(message)
                 self.latest_update = event.get("eventId", None)
