@@ -141,7 +141,7 @@ class ConnectorICQ(Connector):
                     text=payload["text"],
                     user=nick,
                     user_id=user_id,
-                    target=response["payload"]["chat"]["chatId"],
+                    target=payload["chat"]["chatId"],
                     connector=self,
                 )
                 if self.handle_user_permission(nick, user_id):
