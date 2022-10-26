@@ -29,8 +29,7 @@ class ConnectorICQ(Connector):
         :param config (dict): configuration settings from the file configuration.yaml.
         :param opsdroid (OpsDroid): An instance of opsdroid.core.
         """
-        _LOGGER.debug(
-            "Loaded ICQ Connector")
+        _LOGGER.debug("Loaded ICQ Connector")
         super().__init__(config, opsdroid=opsdroid)
         self.name = "icq"
         self.opsdroid = opsdroid
@@ -48,7 +47,8 @@ class ConnectorICQ(Connector):
             self.token = config["token"]
         except (KeyError, AttributeError):
             _LOGGER.error(
-                "Unable to login: Access token is missing. ICQ connector will be unavailable.")
+                "Unable to login: Access token is missing. ICQ connector will be unavailable."
+            )
 
     @staticmethod
     def get_user(response):
@@ -59,15 +59,19 @@ class ConnectorICQ(Connector):
         from. This method was created to keep if/else
         statements to a minium on _parse_message.
         :param response (str): Response returned by aiohttp.ClientSession.
+        :param bot_name (str): Name of the bot used in opsdroid configuration.
         """
-        user = None
+        nick = None
+        user_id = None
 
-        if "chatId" in response.get("payload", {}).get("chat", None):
-            user = response["payload"]["chat"]["chatId"]
+        if "userId" in response.get("payload", {}).get("from", {}):
+            user_id = response["payload"]["from"]["userId"]
+        if "nick" in response.get("payload", {}).get("from", {}):
+            nick = response["payload"]["from"]["nick"]
 
-        return user
+        return nick, user_id
 
-    def handle_user_permission(self, response, user):
+    def handle_user_permission(self, nick, user_id):
         """
         Handle user permissions.
         This will check if the user that tried to talk with
@@ -75,13 +79,14 @@ class ConnectorICQ(Connector):
         """
         if (
             not self.whitelisted_users
-            or user in self.whitelisted_users
+            or nick in self.whitelisted_users
+            or user_id in self.whitelisted_users
         ):
             return True
 
         return False
 
-    def build_url(self, method):
+    def build_url(self, method) -> str:
         """
         Build the url to connect to the API.
         :param method (str): API call end point.
@@ -94,26 +99,19 @@ class ConnectorICQ(Connector):
         Connect to ICQ.
         Basically checks if provided token is valid.
         """
-        _LOGGER.debug(
-            "Connecting to ICQ.")
+        _LOGGER.debug("Connecting to ICQ.")
 
         self.session = aiohttp.ClientSession()
-        params = {
-            'token': self.token
-        }
+        params = {"token": self.token}
         resp = await self.session.get(url=self.build_url("self/get"), params=params)
 
         if resp.status != 200:
-            _LOGGER.error(
-                "Unable to connect.")
-            _LOGGER.error(
-                f"ICQ error {resp.status}, {resp.text}.")
+            _LOGGER.error("Unable to connect.")
+            _LOGGER.error(f"ICQ error {resp.status}, {resp.text}.")
         else:
             json = await resp.json()
-            _LOGGER.debug(
-                json)
-            _LOGGER.debug(
-                f"Connected to ICQ as {json['nick']}.")
+            _LOGGER.debug(json)
+            _LOGGER.debug(f"Connected to ICQ as {json['nick']}.")
 
     async def _parse_message(self, response):
         """
@@ -130,43 +128,33 @@ class ConnectorICQ(Connector):
         :param response (dict): Response returned by aiohttp.ClientSession.
         """
 
-        _LOGGER.debug(
-            response)
-        try:
-            for event in response["events"]:
-                _LOGGER.debug(
-                    event)
-                payload = event.get("payload", {})
-                if event.get("type", None) == "editedMessage":
-                    self.latest_update = event["eventId"]
-                    _LOGGER.debug(
-                        "editedMessage message - Ignoring message.")
-                elif event.get("type", None) == "newMessage" and "text" in payload:
-                    user = self.get_user(event)
-                    message = Message(
-                        text=payload["text"],
-                        user=user,
-                        user_id=user,
-                        target=user,
-                        connector=self,
-                    )
-                    if self.handle_user_permission(event, user):
-                        await self.opsdroid.parse(message)
-                    else:
-                        message.text = (
-                            "Sorry, you're not allowed " "to speak with this bot."
-                        )
-                        await self.send(message)
-                    self.latest_update = event["eventId"]
-                elif "eventId" in event:
-                    self.latest_update = event["eventId"]
-                    _LOGGER.debug(
-                        "Ignoring event.")
+        _LOGGER.debug(response)
+        for event in response.get("events", {}):
+            _LOGGER.debug(event)
+            payload = event.get("payload", {})
+            if event.get("type", None) == "editedMessage":
+                self.latest_update = event.get("eventId", None)
+                _LOGGER.debug("editedMessage message - Ignoring message.")
+            elif event.get("type", None) == "newMessage" and "text" in payload:
+                nick, user_id = self.get_user(event)
+                message = Message(
+                    text=payload["text"],
+                    user=nick,
+                    user_id=user_id,
+                    target=response["payload"]["chat"]["chatId"],
+                    connector=self,
+                )
+                if self.handle_user_permission(nick, user_id):
+                    await self.opsdroid.parse(message)
                 else:
-                    _LOGGER.error(
-                        "Unable to parse the event.")
-        except:
-            raise
+                    message.text = "Sorry, you're not allowed to speak with this bot."
+                    await self.send(message)
+                self.latest_update = event.get("eventId", None)
+            elif "eventId" in event:
+                self.latest_update = event.get("eventId", None)
+                _LOGGER.debug("Ignoring event.")
+            else:
+                _LOGGER.error("Unable to parse the event.")
 
     async def _get_messages(self):
         """
@@ -179,11 +167,7 @@ class ConnectorICQ(Connector):
         the API is called. If no new messages exists the API will just
         return an empty {}.
         """
-        data = {
-            'token': self.token,
-            'pollTime': 30,
-            'lastEventId': 1
-        }
+        data = {"token": self.token, "pollTime": 30, "lastEventId": 1}
         if self.latest_update is not None:
             data["lastEventId"] = self.latest_update
 
@@ -191,8 +175,7 @@ class ConnectorICQ(Connector):
         resp = await self.session.get(self.build_url("events/get"), params=data)
 
         if resp.status != 200:
-            _LOGGER.error(
-                f"ICQ error {resp.status}, {resp.text}.")
+            _LOGGER.error(f"ICQ error {resp.status}, {resp.text}.")
             self.listening = False
         else:
             json = await resp.json()
@@ -229,7 +212,8 @@ class ConnectorICQ(Connector):
         :param message (object): An instance of Message.
         """
         _LOGGER.debug(
-            f"Responding with: '{message.text}' at target: '{message.target}'")
+            f"Responding with: '{message.text}' at target: '{message.target}'"
+        )
 
         data = dict()
         data["token"] = self.token
@@ -237,11 +221,9 @@ class ConnectorICQ(Connector):
         data["text"] = message.text
         resp = await self.session.post(self.build_url("messages/sendText"), data=data)
         if resp.status == 200:
-            _LOGGER.debug(
-                "Successfully responded.")
+            _LOGGER.debug("Successfully responded.")
         else:
-            _LOGGER.error(
-                "Unable to respond.")
+            _LOGGER.error("Unable to respond.")
 
     async def disconnect(self):
         """

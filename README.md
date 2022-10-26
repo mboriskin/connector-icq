@@ -19,7 +19,7 @@ connectors:
 ## How to start
 
 ```commandline
-./startup --help
+./startup.sh --help
 ```
 
 output should be as follows:
@@ -50,7 +50,7 @@ PATH_TO_DOCKERFILE=bot/.
 Then you can build an image with specified name
 
 ```commandline
-IMAGE_NAME="my_opsdroid_icq" ./startup --build
+IMAGE_NAME="my_opsdroid_icq" ./startup.sh --build
 ```
 
 output should be as follows:
@@ -81,7 +81,7 @@ or something else if you modified the Dockerfile and/or passed any other paramet
 next you can run opsdroid with your bot (skill/s) in the background
 
 ```commandline
-IMAGE_NAME="my_opsdroid_icq" ./startup --runbg
+IMAGE_NAME="my_opsdroid_icq" ./startup.sh --runbg
 ```
 
 output should be as follows:
@@ -102,7 +102,7 @@ b6ad132785238462f3863e532cb6afc08a801957d3d4e17ee1046f7c5a25394f
 when you'll decide to stop background running container, you should stop it
 
 ```commandline
-IMAGE_NAME="my_opsdroid_icq" ./startup --stop
+IMAGE_NAME="my_opsdroid_icq" ./startup.sh --stop
 ```
 
 output should be as follows:
